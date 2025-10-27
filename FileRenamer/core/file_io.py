@@ -81,7 +81,7 @@ class FileReader():
             
         # read the next lines
         count = 0 
-        for row in sheet.iter_rows(values_only=True , min_row=2)  #starts at line 2 
+        # for row in sheet.iter_rows(values_only=True , min_row=2)  #starts at line 2 
             
             
             
