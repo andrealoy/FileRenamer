@@ -28,78 +28,73 @@ class FileReader:
     # 🧹 Text normalization for LLM ingestion
     # ------------------------------------------------------------
     def _normalize_text(self, text: str) -> str:
-        """Cleans and standardizes raw text for LLM processing."""
+        """
+        Cleans and standardizes raw text:
+        - Removes emojis and strange characters
+        - Replaces tabs and newlines with spaces
+        - Reduces multiple spaces
+        - Converts everything to lowercase
+        """
 
-        # Optional emoji removal
+        # Remove emojis (optional)
         if self.remove_emojis:
-            emoji_pattern = re.compile("["
-                u"\U0001F600-\U0001F64F"  # emoticons
-                u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                u"\U0001F1E0-\U0001F1FF"  # flags
-                "]+", flags=re.UNICODE)
-            text = emoji_pattern.sub('', text)
+            text = re.sub(r'[\U0001F600-\U0001FAFF]', '', text)
 
-        # Remove weird characters, tabs, and excessive spaces
-        text = re.sub(r"[^\w\s.,;:!?\'\"()\-/%]+", " ", text)
+        # Replace newlines and tabs by spaces
         text = text.replace("\n", " ").replace("\t", " ")
-        text = re.sub(r"\s+", " ", text)
-        text = text.strip()
 
-        # Convert to lowercase for consistency
+        # Keep only alphanumeric characters and basic punctuation
+        text = re.sub(r"[^a-zA-Z0-9\s.,;:!?'/\-]", " ", text)
+
+        # Replace multiple spaces by a single one
+        text = re.sub(r"\s+", " ", text).strip()
+
         return text.lower()
 
     # ------------------------------------------------------------
     # 🧩 Universal DataFrame cleaner (CSV / Excel)
     # ------------------------------------------------------------
+
+
     def _clean_dataframe(self, df: pd.DataFrame) -> str:
-        """
-        Cleans and flattens tabular data for semantic LLM ingestion:
-        - Keeps textual and date-like content
-        - Removes numeric noise (isolated numbers, floats)
-        - Avoids duplicates while preserving order
-        """
+        # Convertir les noms de colonnes en chaînes pour éviter les erreurs avec .str
+        df.columns = df.columns.map(str)
 
-        # Drop "Unnamed" columns (Excel artifacts)
-        df = df.loc[:, ~df.columns.astype(str).str.contains('^Unnamed', case=False)]
+        # Supprimer les colonnes parasites (souvent "Unnamed: 0", etc.)
+        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
 
-        # Replace missing values safely
-        df = df.replace({pd.NA: "", "NaT": "", "nan": "", "None": "", None: ""}).fillna("")
-        df = df.astype(str)
+        # Supprimer les lignes où toutes les valeurs sont nulles (NaN, NaT, None, etc.)
+        mask_all_null = df.isnull().all(axis=1)
+        df = df[~mask_all_null]
 
-        # Keep non-empty rows
-        df = df[df.apply(lambda row: any(cell.strip() for cell in row), axis=1)]
-        if df.empty:
-            return "(empty table)"
+        # Remplacer les NaN restants par des chaînes vides et convertir en string
+        df = df.fillna("").astype(str)
 
-        # Build text content
-        headers = [str(c).strip() for c in df.columns if str(c).strip() and not str(c).startswith("Unnamed")]
-        lines = []
-        for _, row in df.head(self.max_lines).iterrows():
-            cells = [cell.strip() for cell in row if cell.strip()]
-            lines.append(" ".join(cells))
+        # Supprimer les lignes qui ne contiennent que des espaces ou des chaînes vides
+        mask_all_empty = df.apply(lambda x: "".join(x).strip() == "", axis=1)
+        df = df[~mask_all_empty]
 
-        text = " ".join(headers + lines)
+        # Fusionner colonnes + contenu en un seul texte
+        text = " ".join(df.columns) + " " + " ".join(
+            " ".join(row) for row in df.head(self.max_lines).values.tolist()
+        )
 
-        # ✅ Keep dates but remove isolated numbers (not part of a date)
-        # Keep things like 2023-10-09, 10/02/2024, 2024.03.15
-        text = re.sub(r"\b(?<!\d)(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})(?!\d)\b", lambda m: f" {m.group(0)} ", text)
-        # Remove remaining pure numbers and floats
-        text = re.sub(r"\b\d+(\.\d+)?\b", " ", text)
+        # Nettoyage des mots : garder dates, supprimer nombres
+        words = text.split()
+        cleaned = []
+        for w in words:
+            try:
+                pd.to_datetime(w, format=None, errors="raise")
+                cleaned.append(w)
+            except Exception:
+                if not w.replace(".", "", 1).isdigit():
+                    cleaned.append(w)
 
-        # Normalize spacing and punctuation
-        text = self._normalize_text(text)
+        return " ".join(cleaned)
 
-        # Remove duplicates while preserving order
-        seen = set()
-        words = []
-        for word in text.split():
-            if word not in seen:
-                seen.add(word)
-                words.append(word)
 
-        cleaned_text = " ".join(words)
-        return cleaned_text
+
+
 
     # ------------------------------------------------------------
     # 📄 Individual file readers
