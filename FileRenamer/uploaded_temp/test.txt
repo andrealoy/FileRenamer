@@ -1,0 +1,119 @@
+Parfait 👌 Tu touches exactement aux points sensibles du data reading — c’est une excellente idée d’ajouter du filtering intelligent pour améliorer la lisibilité et éviter les retours inutiles.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+On va procéder en 3 parties, pour que tu comprennes la logique :
+
+🧠 1. Objectif du “filtering”
+
+Tu veux que :
+
+les PDF soient nettoyés des lignes vides ou composées uniquement d’espaces,
+
+les CSV / XLSX ne montrent pas de NaN, NaT, ni de valeurs nulles,
+
+et que le tout reste propre, concis et sûr (sans casser ton pipeline existant).
+
+✅ 2. Version améliorée de tes lecteurs
+
+Voici une version mise à jour propre et robuste, en gardant ta structure intacte.
+
+🔸 PDF – suppression des espaces vides
+def pdf_reader(self) -> str:
+    """
+    Read a PDF file and extract cleaned text from its pages.
+    """
+    import PyPDF2
+    lines = []
+    with open(self.path, "rb") as f:
+        reader = PyPDF2.PdfReader(f)
+        for i, page in enumerate(reader.pages):
+            raw_text = page.extract_text() or ""
+            # On nettoie le texte page par page
+            for line in raw_text.splitlines():
+                clean = line.strip()
+                if clean:  # on saute les lignes vides
+                    lines.append(clean)
+            if len(lines) >= self.max_lines:
+                break
+    return "\n".join(lines[:self.max_lines])
+
+🔸 CSV – suppression des NaN
+def csv_reader(self) -> str:
+    """
+    Read a CSV file and return a string without NaN values.
+    """
+    import pandas as pd
+    df = pd.read_csv(self.path)
+
+    # Supprimer les lignes complètement vides
+    df = df.dropna(how='all')
+
+    # Remplacer NaN / NaT par une chaîne vide
+    df = df.replace({pd.NA: "", "NaT": "", "nan": ""}).fillna("")
+
+    # Limiter à N lignes
+    df_limited = df.head(self.max_lines)
+
+
+
+
+
+
+
+
+
+    # Conversion lisible
+    return df_limited.to_string(index=False)
+
+🔸 XLSX – suppression des NaT / NaN
+def xlsx_reader(self) -> str:
+    """
+    Read an Excel file and clean NaT / NaN / empty rows.
+    """
+    import pandas as pd
+    df = pd.read_excel(self.path)
+
+    # Supprimer les lignes complètement vides
+    df = df.dropna(how='all')
+
+    # Remplacer NaT et NaN par vide
+    df = df.replace({pd.NA: "", "NaT": "", "nan": ""}).fillna("")
+
+    # Limiter à N lignes
+    df_limited = df.head(self.max_lines)
+
+    return df_limited.to_string(index=False)
+
+⚙️ 3. Bonus : un petit “post-processing” global
+
+Tu peux aussi centraliser un filtrage final dans read_text_file()
+pour supprimer les lignes contenant uniquement des espaces ou des caractères étranges.
+
+Ajoute à la fin de read_text_file() :
+
+def read_text_file(self):
+    ...
+    content = None
+
+    if self.ext == ".txt":
+        content = self.text_reader()
+    elif self.ext == ".json":
+        content = self.json_reader()
+    elif self.ext == ".csv":
+        content = self.csv_reader()

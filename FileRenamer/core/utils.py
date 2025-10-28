@@ -1,4 +1,5 @@
 import os
+import zipfile 
 
 def identify_extension(file_path: str):
     """
@@ -37,3 +38,23 @@ def is_text_file(file_path: str) -> bool:
     """
     _, filetype = identify_extension(file_path)
     return filetype == "text"
+
+
+def zip_files(file_paths, output_zip_path):
+    """
+    Crée une archive ZIP contenant les fichiers donnés.
+
+    Args:
+        file_paths (list[str]): chemins absolus des fichiers à zipper.
+        output_zip_path (str): chemin complet du fichier zip à créer.
+
+    Returns:
+        str: chemin du fichier zip créé.
+    """
+    with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for path in file_paths:
+            if os.path.isfile(path):
+                arcname = os.path.basename(path)  # nom à l’intérieur du zip
+                zipf.write(path, arcname)
+    return output_zip_path
+
