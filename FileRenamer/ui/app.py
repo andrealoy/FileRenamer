@@ -1,27 +1,32 @@
-# app.py — Streamlit UI (interface only)
 # -------------------------------------------------------------
 # This file exposes ONLY the interface. It:
-# - keeps your custom `upload_files(...)` helper
+# - keeps your custom ⁠ upload_files(...) ⁠ helper
 # - shows counts of text/image files uploaded
 # - provides a button to trigger AI naming (hook to implement elsewhere)
 # - lets the user review/edit filenames in a table
 # - creates a ZIP for download
-# - includes explicit clean/reset actions via `clear_temp_dir()`
+# - includes explicit clean/reset actions via ⁠ clear_temp_dir() ⁠
 #
-# >>> Plug your backend logic into `run_ai_naming(...)` <<<
+# >>> Plug your backend logic into ⁠ run_ai_naming(...) ⁠ <<<
 # It must return a list[dict] with keys: name, ext, path, clean_description, generated_filename
 # -------------------------------------------------------------
-
 from __future__ import annotations
+import sys
 import os
+
+# Ajoute le dossier parent (FileRenamer/) au path pour que 'core' soit importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import io
 import zipfile
 import pandas as pd
 import streamlit as st
 
-# Your helpers (as requested)
+from core.file_io import FileReader
 from streamlit_helpers import upload_files, clear_temp_dir
 
+# file_reader = FileReader() 
+# FileReader.read_text_file(fichier)
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -92,19 +97,19 @@ with col_left:
                 st.session_state.df = df
                 st.success("✅ AI naming complete!")
         except NotImplementedError as e:
-            st.info("Interface only: backend not connected. Implement `run_ai_naming(...)` to enable this.")
+            st.info("Interface only: backend not connected. Implement ⁠ run_ai_naming(...) ⁠ to enable this.")
         except Exception as e:
             st.error(f"⚠️ An unexpected error occurred: {e}")
 
-with col_right:
-    # Manual reset & cleanup controls are explicit to avoid deleting files before download
-    if st.button("🧹 Clean temporary files", use_container_width=True):
-        try:
-            clear_temp_dir()
-            st.session_state.df = None
-            st.success("🧼 Temp directory cleaned.")
-        except Exception as e:
-            st.error(f"Could not clean temp dir: {e}")
+# with col_right:
+#     # Manual reset & cleanup controls are explicit to avoid deleting files before download
+#     if st.button("🧹 Clean temporary files", use_container_width=True):
+#         try:
+#             clear_temp_dir()
+#             st.session_state.df = None
+#             st.success("🧼 Temp directory cleaned.")
+#         except Exception as e:
+#             st.error(f"Could not clean temp dir: {e}")
 
 # ============================================================
 # REVIEW TABLE + ZIP DOWNLOAD
