@@ -47,10 +47,8 @@ from ui.streamlit_helpers import upload_files, clear_temp_dir, TEXT_EXTS
 from core.ai_pipeline import run_ai_naming
 
 
-
-
 st.title("AI File Renamer")
-clear_temp_dir()
+
 text_files = upload_files(TEXT_EXTS)
 
 if st.button("Lancer l'analyse") and text_files:
@@ -59,3 +57,4 @@ if st.button("Lancer l'analyse") and text_files:
         st.subheader(f"{r['name']}{r['ext']}")
         st.write(f"Description : {r['clean_description']}")
         st.write(f"Nouveau nom : {r['generated_filename']}{r['ext']}")
+clear_temp_dir()
