@@ -1,39 +1,58 @@
+# main.py
 import os
-from core.file_io import FileReader
-from core.utils import identify_extension
+from core.ai_pipeline import run_ai_naming
+from core.utils import is_text_file
 
-def process_file(path):
-    """Lit un fichier texte et affiche un aperçu."""
-    ext, filetype = identify_extension(path)
-    print(f"\n📄 {os.path.basename(path)} — type détecté : {filetype}")
+def collect_text_files_from_folder(folder_path):
+    """
+    Explore un dossier et récupère uniquement les fichiers texte (.txt, .pdf, .csv, etc.)
+    Retourne une liste de dictionnaires :
+        [{"name": "mon_fichier", "ext": ".txt", "path": "C:/.../mon_fichier.txt"}]
+    """
+    text_files = []
 
-    if filetype == "text":
-        try:
-            reader = FileReader(path)
-            content = reader.read_text_file()
-            print("--- CONTENU DU FICHIER ---\n")
-            print(content)
-        except Exception as e:
-            print(f"❌ Erreur de lecture : {e}")
-    else:
-        print("⚠️ Fichier ignoré (non texte).")
+    for root, _, filenames in os.walk(folder_path):
+        for fname in filenames:
+            name, ext = os.path.splitext(fname)  # ← correction ici
+            abs_path = os.path.join(root, fname)
+
+            if is_text_file(abs_path):
+                text_files.append({"name": name, "ext": ext.lower(), "path": abs_path})
+
+    return text_files
 
 def main():
-    path = input("👉 Entre le chemin du fichier ou du dossier à lire : ").strip()
+    print("=== 🧠 AI Text File Naming Pipeline ===\n")
 
-    if not os.path.exists(path):
-        print("❌ Le chemin n'existe pas.")
+    # 💡 Demande à l’utilisateur un dossier à analyser
+    folder = input("👉 Enter folder path to analyze: ").strip()
+    if not os.path.isdir(folder):
+        print(f"❌ Folder not found: {folder}")
         return
 
-    # Si c’est un dossier → on lit tous les fichiers à l’intérieur
-    if os.path.isdir(path):
-        print(f"\n📁 Parcours du dossier : {path}\n")
-        for root, _, files in os.walk(path):
-            for f in files:
-                file_path = os.path.join(root, f)
-                process_file(file_path)
-    else:
-        process_file(path)
+    # 🧩 Collecter uniquement les fichiers texte
+    text_files = collect_text_files_from_folder(folder)
+
+    if len(text_files) == 0:
+        print("⚠️ No supported text files found in this folder.")
+        return
+
+    print(f"✅ Found {len(text_files)} text files.")
+    print("🚀 Running AI pipeline...\n")
+
+    # 🚀 Appel du pipeline principal
+    results = run_ai_naming(text_files)
+
+    # 🧾 Affichage des résultats
+    print("\n=== RESULTS ===")
+    for r in results:
+        print(f"📄 Original: {r['name']}{r['ext']}")
+        print(f"📝 Description: {r['clean_description']}")
+        print(f"💾 New Filename: {r['generated_filename']}{r['ext']}")
+        print("-" * 50)
+
+    print(f"\n🎉 Done! Processed {len(text_files)} text files total.")
+
 
 if __name__ == "__main__":
     main()
