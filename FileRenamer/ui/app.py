@@ -40,16 +40,50 @@ Pour lancer le projet streamlit run ui/app.py depuis le dossier FileRenamer ( qu
 import os
 import streamlit as st 
 from core.ai_pipeline import run_ai_naming
-from ui.streamlit_helpers import upload_files, clear_temp_dir, TEXT_EXTS
+#from ui.streamlit_helpers import upload_files, clear_temp_dir, TEXT_EXTS
+from ui.streamlit_helpers import upload_files, clear_temp_dir, clear_and_clean_button, TEXT_EXTS
 
 st.title("AI File Renamer")
 
-text_files = upload_files(TEXT_EXTS)
+TEMP_DIR = "uploaded_temp"
 
+# --- Bouton Clear & Clean ---
+clear_and_clean_button(TEMP_DIR)
+
+# --- Upload des fichiers ---
+if "uploaded_files" not in st.session_state:
+    st.session_state["uploaded_files"] = []
+
+# Ajouter les nouveaux fichiers uploadés
+new_files = upload_files(TEXT_EXTS, TEMP_DIR)
+if new_files:
+    # Ajouter uniquement les fichiers qui ne sont pas déjà dans la session_state
+    existing_paths = {f["path"] for f in st.session_state["uploaded_files"]}
+    for f in new_files:
+        if f["path"] not in existing_paths:
+            st.session_state["uploaded_files"].append(f)
+
+text_files = st.session_state["uploaded_files"]
+
+# --- Lancement de l'analyse ---
 if st.button("Lancer l'analyse") and text_files:
     results = run_ai_naming(text_files)
     for r in results:
         st.subheader(f"{r['name']}{r['ext']}")
         st.write(f"Description : {r['clean_description']}")
         st.write(f"Nouveau nom : {r['generated_filename']}{r['ext']}")
-clear_temp_dir()
+
+
+
+
+#st.title("AI File Renamer")
+
+#text_files = upload_files(TEXT_EXTS)
+
+# if st.button("Lancer l'analyse") and text_files:
+#     results = run_ai_naming(text_files)
+#     for r in results:
+#         st.subheader(f"{r['name']}{r['ext']}")
+#         st.write(f"Description : {r['clean_description']}")
+#         st.write(f"Nouveau nom : {r['generated_filename']}{r['ext']}")
+# clear_temp_dir()
