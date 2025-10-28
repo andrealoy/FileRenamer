@@ -36,16 +36,11 @@ Pour lancer le projet streamlit run ui/app.py depuis le dossier FileRenamer ( qu
 
 
 # EXEMPLE MINIMAL D'INTERFACE
-import sys
+
 import os
-
-# Ajoute la racine du projet au PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-import streamlit as st
-from ui.streamlit_helpers import upload_files, clear_temp_dir, TEXT_EXTS
+import streamlit as st 
 from core.ai_pipeline import run_ai_naming
-
+from ui.streamlit_helpers import upload_files, clear_temp_dir, TEXT_EXTS
 
 st.title("AI File Renamer")
 
