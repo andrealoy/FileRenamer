@@ -3,6 +3,8 @@ import os
 import shutil
 import random 
 import streamlit as st
+import pandas as pd
+from core.ai_pipeline import step_format_for_ui
 
 TEXT_EXTS = {".txt", ".docx", ".pdf", ".csv", ".xlsx", ".json"}
 
@@ -54,9 +56,11 @@ def clear_temp_dir(TEMP_DIR: str = "uploaded_temp") -> None:
         shutil.rmtree(TEMP_DIR)
     os.makedirs(TEMP_DIR, exist_ok=True)
 
-def clear_and_clean_button(TEMP_DIR: str = "uploaded_temp"):
+def clear_and_clean_button(TEMP_DIR: str = "uploaded_temp", key: str = "clear_btn"):
     """
-    Vide TEMP_DIR et réinitialise les fichiers uploadés, y compris le file_uploader
+    Crée un bouton Streamlit qui, une fois cliqué :
+    - vide le dossier temporaire
+    - réinitialise le file_uploader
     """
     if st.button("🧹 Clear & Clean"):
         # Vider le dossier temporaire
@@ -68,4 +72,23 @@ def clear_and_clean_button(TEMP_DIR: str = "uploaded_temp"):
         # Générer une clé unique pour le file_uploader
         st.session_state["file_uploader_key"] = f"file_uploader_{random.randint(0, 100000)}"
 
+         # Message de succès
         st.success("Dossier temporaire vidé et fichiers uploadés réinitialisés !")
+
+# reformater la liste en dataframe 
+from core.ai_pipeline import step_format_for_ui
+
+def items_to_dataframe(items):
+    """
+    Transforme la liste de dict renvoyée par step_format_for_ui en DataFrame.
+    """
+    formatted_items = step_format_for_ui(items)
+    df = pd.DataFrame([
+        {
+            "Nom du fichier": it["name"] + it["ext"],
+            "Description": it.get("clean_description", ""),
+            "Nouveau nom généré": it.get("generated_filename", it["name"]) + it["ext"],
+        }
+        for it in formatted_items
+    ])
+    return df
