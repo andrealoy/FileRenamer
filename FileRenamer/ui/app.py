@@ -2,6 +2,7 @@ import streamlit as st
 from ui.streamlit_helpers import (
     upload_files,
     clear_and_clean_button,
+    clear_and_clean,
     TEXT_EXTS,
     items_to_dataframe,
     download_zip_button,
@@ -12,12 +13,19 @@ st.set_page_config(page_title="AI File Renamer", layout="wide")
 st.title("📂 AI File Renamer")
 
 # -----------------------------
-# 1️⃣ Upload fichiers
+# Nettoyage automatique au premier lancement
+# -----------------------------
+if "cleaned_on_start" not in st.session_state:
+    clear_and_clean("uploaded_temp")
+    st.session_state["cleaned_on_start"] = True
+
+# -----------------------------
+#  Upload fichiers
 # -----------------------------
 files = upload_files(TEXT_EXTS)
 
 # -----------------------------
-# 2️⃣ Boutons alignés
+#  Boutons alignés
 # -----------------------------
 col1, col2, col3 = st.columns([3, 2, 1])
 with col1:
@@ -26,7 +34,7 @@ with col3:
     clear_and_clean_button("uploaded_temp")
 
 # -----------------------------
-# 3️⃣ Lancer pipeline AI
+#  Lancer pipeline AI
 # -----------------------------
 if lancer and files:
     with st.spinner("⌛ Analyse en cours…"):
@@ -36,7 +44,7 @@ if lancer and files:
 
 
 # -----------------------------
-# 4️⃣ Affichage DataFrame + téléchargements
+#  Affichage DataFrame + téléchargements
 # -----------------------------
 if st.session_state.get("last_results_df") is not None:
     st.subheader("Résultats de l'analyse")

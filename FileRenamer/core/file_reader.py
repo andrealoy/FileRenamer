@@ -1,136 +1,135 @@
 import os
 import json
 import pandas as pd
-import PyPDF2
+import pdfplumber
 from docx import Document
 import re
+from typing import Optional
 from .utils import identify_extension
+from zipfile import is_zipfile
 
 
 class FileReader:
     """
-    A robust multi-format file reader that extracts clean, normalized text
-    from various file types (.txt, .json, .csv, .xlsx, .pdf, .docx).
+    Lecteur de fichiers multi-formats robuste, capable d'extraire un texte propre et normalisé
+    à partir de différents types de fichiers (.txt, .json, .csv, .xlsx, .pdf, .docx).
 
-    Designed for feeding into LLMs or NLP pipelines:
-    - Removes emojis, strange characters, and empty values
-    - Normalizes whitespace and formatting
-    - Returns a single clean text string
+    Conçu pour l'ingestion dans des modèles de langage (LLM) ou pipelines NLP :
+    - Supprime les emojis, caractères spéciaux et valeurs vides
+    - Normalise les espaces et la mise en forme
+    - Retourne une chaîne de texte nettoyée prête à l'analyse
     """
 
-    def __init__(self, path, max_lines=20, remove_emojis=True):
-        self.path = path
-        self.ext, _ = identify_extension(path)
-        self.max_lines = max_lines
+    def __init__(self, max_words: int = 500, remove_emojis: bool = True) -> None:
+        """
+        Initialise le lecteur avec des options de nettoyage.
+        
+        Args:
+            max_words: Nombre maximum de mots à conserver dans le texte final.
+            remove_emojis: Si vrai, supprime les emojis du texte.
+        """
+        self.max_words = max_words
         self.remove_emojis = remove_emojis
+        self.path: Optional[str] = None
+        self.ext: Optional[str] = None
 
     # ------------------------------------------------------------
-    # 🧹 Text normalization for LLM ingestion
+    #  Normalisation du texte brut
     # ------------------------------------------------------------
     def _normalize_text(self, text: str) -> str:
         """
-        Cleans and standardizes raw text:
-        - Removes emojis and strange characters
-        - Replaces tabs and newlines with spaces
-        - Reduces multiple spaces
-        - Converts everything to lowercase
+        Nettoie et standardise le texte brut :
+        - Supprime les emojis et caractères non désirés
+        - Remplace les tabulations et retours à la ligne par des espaces
+        - Réduit les espaces multiples à un seul
+        - Convertit le texte en minuscules
+        - Tronque à `max_words` mots
         """
-
-        # Remove emojis (optional)
         if self.remove_emojis:
             text = re.sub(r'[\U0001F600-\U0001FAFF]', '', text)
 
-        # Replace newlines and tabs by spaces
         text = text.replace("\n", " ").replace("\t", " ")
-
-        # Keep only alphanumeric characters and basic punctuation
-        text = re.sub(r"[^a-zA-Z0-9\s.,;:!?'/\-]", " ", text)
-
-        # Replace multiple spaces by a single one
+        text = re.sub(r"[^a-zA-Z0-9\sàâäéèêëïîôöùûüç.,;:!?'/\-]", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
 
-        return text.lower()
+        words = text.split()[:self.max_words]
+        return " ".join(words).lower()
 
     # ------------------------------------------------------------
-    # 🧩 Universal DataFrame cleaner (CSV / Excel)
+    #  Nettoyage universel de DataFrame (CSV / Excel)
     # ------------------------------------------------------------
-
-
-    def _clean_dataframe(self, df: pd.DataFrame) -> str:
-        # Convertir les noms de colonnes en chaînes pour éviter les erreurs avec .str
-        df.columns = df.columns.map(str)
-
-        # Supprimer les colonnes parasites (souvent "Unnamed: 0", etc.)
-        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-
-        # Supprimer les lignes où toutes les valeurs sont nulles (NaN, NaT, None, etc.)
-        mask_all_null = df.isnull().all(axis=1)
-        df = df[~mask_all_null]
-
-        # Remplacer les NaN restants par des chaînes vides et convertir en string
+    def _clean_dataframe(self, df: pd.DataFrame, max_cells: int = 10000) -> str:
+        """
+        Nettoie un DataFrame pour extraire un texte lisible :
+        - Supprime les valeurs NaN, NaT, None, Unnamed et vides
+        - Limite le nombre de cellules analysées pour éviter les surcharges
+        - Concatène toutes les cellules en une chaîne unique nettoyée
+        """
         df = df.fillna("").astype(str)
+        flat_values = df.values.ravel()[:max_cells]
 
-        # Supprimer les lignes qui ne contiennent que des espaces ou des chaînes vides
-        mask_all_empty = df.apply(lambda x: "".join(x).strip() == "", axis=1)
-        df = df[~mask_all_empty]
-
-        # Fusionner colonnes + contenu en un seul texte
-        text = " ".join(df.columns) + " " + " ".join(
-            " ".join(row) for row in df.head(self.max_lines).values.tolist()
+        mask = ~pd.Series(flat_values).str.match(
+            r"^\s*(nan|nat|none|null|unnamed.*)?\s*$",
+            case=False,
+            na=True
         )
+        valid_cells = flat_values[mask.values]
 
-        # Nettoyage des mots : garder dates, supprimer nombres
-        words = text.split()
-        cleaned = []
-        for w in words:
-            try:
-                pd.to_datetime(w, format=None, errors="raise")
-                cleaned.append(w)
-            except Exception:
-                if not w.replace(".", "", 1).isdigit():
-                    cleaned.append(w)
+        text = " ".join(valid_cells).lower()
+        text = re.sub(r"[^a-zA-Z0-9\sàâäéèêëïîôöùûüç.,;:!?'/\-]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
 
-        return " ".join(cleaned)
-
+        words = text.split()[:self.max_words]
+        return " ".join(words)
 
     # ------------------------------------------------------------
-    # 📄 Individual file readers
+    #  Lecteurs individuels
     # ------------------------------------------------------------
-    def text_reader(self):
+    def text_reader(self) -> str:
+        """Lit un fichier texte (.txt) et retourne le texte normalisé."""
         with open(self.path, "r", encoding="utf-8", errors="ignore") as f:
             text = f.read()
         return self._normalize_text(text)
 
-    def json_reader(self):
+    def json_reader(self) -> str:
+        """Lit un fichier JSON et retourne son contenu sous forme de texte normalisé."""
         with open(self.path, "r", encoding="utf-8", errors="ignore") as f:
             data = json.load(f)
         text = json.dumps(data, indent=2, ensure_ascii=False)
         return self._normalize_text(text)
 
-    def pdf_reader(self):
-        lines = []
-        with open(self.path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            for i, page in enumerate(reader.pages):
+    def pdf_reader(self) -> str:
+        """Lit un fichier PDF et retourne le texte extrait et normalisé."""
+        all_text = []
+        with pdfplumber.open(self.path) as pdf:
+            for i, page in enumerate(pdf.pages):
                 raw_text = page.extract_text() or ""
-                lines.extend(raw_text.splitlines())
-                if len(lines) >= self.max_lines:
+                all_text.extend(raw_text.splitlines())
+                if len(all_text) >= self.max_words:
                     break
-        return self._normalize_text(" ".join(lines))
+        return self._normalize_text(" ".join(all_text))
 
-    def docx_reader(self):
+    def docx_reader(self) -> str:
+        """Lit un fichier Word (.docx) et retourne le texte nettoyé et normalisé."""
+        if not is_zipfile(self.path):
+            try:
+                with open(self.path, "rb") as f:
+                    raw = f.read().decode("latin-1", errors="ignore")
+                return self._normalize_text(raw)
+            except Exception as e:
+                return f"(fichier DOCX invalide : {self.path}, erreur : {e})"
+
         doc = Document(self.path)
         lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        return self._normalize_text(" ".join(lines[:self.max_lines]))
+        return self._normalize_text(" ".join(lines))
 
-    def csv_reader(self):
-        df = pd.read_csv(self.path, sep=None, engine="python")  # autodetect separator
+    def csv_reader(self) -> str:
+        """Lit un fichier CSV (séparateur auto-détecté) et retourne le texte nettoyé."""
+        df = pd.read_csv(self.path, sep=None, engine="python")
         return self._clean_dataframe(df)
 
-    def xlsx_reader(self):
-        """
-        Reads Excel file safely, even if it has multiple sheets or merged cells.
-        """
+    def xlsx_reader(self) -> str:
+        """Lit un fichier Excel (.xlsx) de manière sécurisée, même avec plusieurs feuilles."""
         try:
             xls = pd.ExcelFile(self.path)
             dfs = []
@@ -139,18 +138,36 @@ class FileReader:
                 if not df.empty:
                     dfs.append(df)
             if not dfs:
-                return "(empty Excel file)"
+                return "(fichier Excel vide)"
             df = pd.concat(dfs, ignore_index=True)
         except Exception as e:
-            return f"(error reading Excel file: {e})"
+            return f"(erreur lors de la lecture du fichier Excel : {e})"
 
         return self._clean_dataframe(df)
 
     # ------------------------------------------------------------
-    # 🧠 Main entry point
+    #  Point d'entrée principal
     # ------------------------------------------------------------
-    def read_text_file(self) -> str:
-        """Automatically selects the right reader based on file extension."""
+    def read_text_file(self, path: Optional[str] = None) -> str:
+        """
+        Sélectionne automatiquement le lecteur approprié en fonction de l'extension du fichier.
+        
+        Args:
+            path: Chemin complet vers le fichier à lire.
+        
+        Returns:
+            Texte nettoyé prêt à l’analyse.
+        
+        Raises:
+            Exception: Si aucun chemin n’est fourni.
+            ValueError: Si le type de fichier n’est pas pris en charge.
+        """
+        if path:
+            self.path = path
+            self.ext, _ = identify_extension(path)
+        else:
+            raise Exception("Aucun chemin de fichier fourni.")
+
         if self.ext == ".txt":
             content = self.text_reader()
         elif self.ext == ".json":
@@ -164,5 +181,6 @@ class FileReader:
         elif self.ext == ".xlsx":
             content = self.xlsx_reader()
         else:
-            raise ValueError(f"Unsupported file type: {self.ext}")
+            raise ValueError(f"Type de fichier non pris en charge : {self.ext}")
+
         return content
