@@ -110,7 +110,7 @@ python main.py
 ```
 Lancer l’application Streamlit :
 ```
-python -m streamlit run app.py
+streamlit run app.py
 ```
 L’application s’ouvre dans votre navigateur à l’adresse : 
 👉 **http://localhost:8501**
