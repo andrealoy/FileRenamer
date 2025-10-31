@@ -105,6 +105,10 @@ setx OPENAI_API_KEY "sk-xxxxx"     # Windows
 Note : Si besoin d'une clé OpenAI , nous contacter à notre adresse mail étudiante: (colline.Bousquet@etu.univ-paris1.fr) (andrea.loy@etu.univ-paris1.fr)
 
 ## 🖥️ Utilisation
+Lancer l'application : 
+```
+python main.py
+```
 Lancer l’application Streamlit :
 ```
 python -m streamlit run ui/app.py
