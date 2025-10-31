@@ -13,13 +13,6 @@ st.set_page_config(page_title="AI File Renamer", layout="wide")
 st.title("📂 AI File Renamer")
 
 # -----------------------------
-# Nettoyage automatique au premier lancement
-# -----------------------------
-if "cleaned_on_start" not in st.session_state:
-    clear_and_clean("uploaded_temp")
-    st.session_state["cleaned_on_start"] = True
-
-# -----------------------------
 #  Upload fichiers
 # -----------------------------
 files = upload_files(TEXT_EXTS)
