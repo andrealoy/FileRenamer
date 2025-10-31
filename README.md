@@ -28,14 +28,13 @@ FileRenamer/
 │
 ├── FileRenamer/
 │   ├── core/
-│   │   ├── ai_pipeline.py          # Pipeline AI : Interface globale (back-end)
-│   │   ├── file_reader.py          # Lecture et nettoyage des fichiers
-│   │   ├── gpt_agent.py            # Interface avec l’API GPT (OpenAI ou autre)
-│   │   └── utils.py                # Fonctions utilitaires (identification des extensions, etc.)
-│   │
-│   ├── ui/
-│   │   ├── app.py                  # Application Streamlit (frontend)
-│   │   └── streamlit_helper.py     # Fonctions utilitaires pour l’interface (upload, boutons, etc.)
+│      ├── ai_pipeline.py          # Pipeline AI : Interface globale (back-end)
+│      ├── file_reader.py          # Lecture et nettoyage des fichiers
+│      ├── gpt_agent.py            # Interface avec l’API GPT (OpenAI ou autre)
+│      └── utils.py                # Fonctions utilitaires (identification des extensions, etc.)
+│   
+├── app.py                          # Application Streamlit (frontend)
+├── streamlit_helper.py             # Fonctions utilitaires pour l’interface (upload, boutons, etc.)
 │
 ├── requirements.txt                # Dépendances du projet
 └── README.md                       # Documentation du projet
@@ -111,7 +110,7 @@ python main.py
 ```
 Lancer l’application Streamlit :
 ```
-python -m streamlit run ui/app.py
+python -m streamlit run app.py
 ```
 L’application s’ouvre dans votre navigateur à l’adresse : 
 👉 **http://localhost:8501**
