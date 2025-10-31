@@ -62,15 +62,19 @@ def upload_files(allowed_exts: List[str], TEMP_DIR: str = "uploaded_temp") -> Li
 # ------------------------------------------------------------
 def clear_and_clean(TEMP_DIR: str = "uploaded_temp") -> None:
     """
-    Supprime le dossier temporaire des fichiers uploadés
-    et réinitialise la session Streamlit.
+    Supprime le dossier temporaire et réinitialise la session Streamlit.
+    Fonction robuste multiplateforme (ignore si le dossier n'existe pas).
     """
-    if os.path.exists(TEMP_DIR):
-        shutil.rmtree(TEMP_DIR)
-    os.makedirs(TEMP_DIR, exist_ok=True)
+    try:
+        if os.path.exists(TEMP_DIR):
+            shutil.rmtree(TEMP_DIR, ignore_errors=True)
+        os.makedirs(TEMP_DIR, exist_ok=True)
+    except Exception as e:
+        st.warning(f"⚠️ Impossible de nettoyer le dossier temporaire : {e}")
 
     st.session_state["uploaded_files"] = []
     st.session_state["last_results_df"] = None
+
 
 
 def clear_and_clean_button(TEMP_DIR: str = "uploaded_temp") -> None:

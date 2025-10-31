@@ -23,13 +23,15 @@ def step_process_single_file(files_input: Dict[str, str]) -> Dict[str, Any]:
 def read_multiprocessed(text_files: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """
     Lit plusieurs fichiers en parallèle à l'aide d'un pool de processus.
-    Retourne une liste de dictionnaires contenant les textes nettoyés.
+    Fonction compatible Windows/macOS/Linux.
     """
+    for f in text_files:
+        f["path"] = os.path.abspath(f["path"])
+
     num_workers = min(len(text_files), os.cpu_count() - 1)
     results = []
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(step_process_single_file, f): f for f in text_files}
-
         for future in as_completed(futures):
             try:
                 item = future.result()
